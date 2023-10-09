@@ -1,10 +1,12 @@
 package com.jiuzhang.seckill.web;
 
+import com.jiuzhang.seckill.db.dao.OrderDao;
 import com.jiuzhang.seckill.db.dao.SeckillActivityDao;
 import com.jiuzhang.seckill.db.dao.SeckillCommodityDao;
 import com.jiuzhang.seckill.db.po.Order;
 import com.jiuzhang.seckill.db.po.SeckillActivity;
 import com.jiuzhang.seckill.db.po.SeckillCommodity;
+import com.jiuzhang.seckill.service.RedisService;
 import com.jiuzhang.seckill.service.SeckillActivityService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
@@ -30,6 +32,12 @@ public class SeckillActivityController {
     private SeckillCommodityDao seckillCommodityDao;
     @Resource
     private SeckillActivityService seckillActivityService;
+
+    @Resource
+    private OrderDao orderDao;
+
+    @Resource
+    private RedisService redisService;
 
     @RequestMapping("/addSeckillActivity")
     public String addSeckillActivity() {
@@ -104,9 +112,17 @@ public class SeckillActivityController {
         boolean stockValidateResult = false;
         ModelAndView modelAndView = new ModelAndView();
         try {
+            if (redisService.isInLimitMember(seckillActivityId, userId)) {
+                //提示用户已经在限购名单中，返回结果
+                modelAndView.addObject("resultInfo", "对不起，您已经在限购名单中");
+                modelAndView.setViewName("seckill_result");
+                return modelAndView;
+            }
+
             /*
              * 确认是否能够进行秒杀
              */
+
             stockValidateResult =
                     seckillActivityService.seckillStockValidator(seckillActivityId);
             if (stockValidateResult) {
@@ -115,6 +131,7 @@ public class SeckillActivityController {
                 modelAndView.addObject("resultInfo","congratulation, order is being created, order ID："
                         + order.getOrderNo());
                 modelAndView.addObject("orderNo",order.getOrderNo());
+                redisService.addLimitMember(seckillActivityId, userId);
             } else {
                 modelAndView.addObject("resultInfo","sorry, out of stock");
             }
@@ -125,4 +142,34 @@ public class SeckillActivityController {
         modelAndView.setViewName("seckill_result");
         return modelAndView;
     }
+
+
+    @RequestMapping("/seckill/orderQuery/{orderNo}")
+    public ModelAndView orderQuery(@PathVariable String orderNo) {
+        log.info("Order query，order Number：" + orderNo);
+        Order order = orderDao.queryOrder(orderNo);
+        ModelAndView modelAndView = new ModelAndView();
+        if (order != null) {
+            modelAndView.setViewName("order");
+            modelAndView.addObject("order", order);
+            SeckillActivity seckillActivity =
+                    seckillActivityDao.querySeckillActivityById(order.getSeckillActivityId());
+            modelAndView.addObject("seckillActivity", seckillActivity);
+        } else {
+            modelAndView.setViewName("order_wait");
+        }
+        return modelAndView;
+    }
+
+    /**
+     * pay  order
+     * @return
+     */
+
+    @RequestMapping("/seckill/payOrder/{orderNo}")
+    public String payOrder(@PathVariable String orderNo) throws Exception {
+        seckillActivityService.payOrderProcess(orderNo);
+        return "redirect:/seckill/orderQuery/" + orderNo;
+    }
+
 }

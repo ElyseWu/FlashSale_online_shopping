@@ -1,5 +1,6 @@
 package com.jiuzhang.seckill.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -7,6 +8,7 @@ import redis.clients.jedis.JedisPool;
 import javax.annotation.Resource;
 import java.util.Collections;
 
+@Slf4j
 @Service
 public class RedisService {
     @Resource
@@ -67,5 +69,33 @@ public class RedisService {
             System.out.println("库存扣减失败：" + throwable.toString());
             return false;
         }
+    }
+
+    public void revertStock(String key) {
+        Jedis jedisClient = jedisPool.getResource();
+        jedisClient.incr(key);
+        jedisClient.close();
+    }
+
+    public boolean isInLimitMember(long activityId, long userId) {
+        Jedis jedisClient = jedisPool.getResource();
+        boolean sismember = jedisClient.sismember("seckillActivity_users:" +
+                activityId, String.valueOf(userId));
+        jedisClient.close();
+        log.info("userId:{} activityId:{} 在已购名单中:{}", userId, activityId,
+                sismember);
+        return sismember;
+    }
+
+    public void addLimitMember(long seckillActivityId, long userId) {
+        Jedis jedisClient = jedisPool.getResource();
+        jedisClient.sadd("seckillActivity_users:" + seckillActivityId,  String.valueOf(userId));
+        jedisClient.close();
+    }
+
+    public void removeLimitMember(Long seckillActivityId, Long userId) {
+        Jedis jedisClient = jedisPool.getResource();
+        jedisClient.srem("seckillActivity_users:" + seckillActivityId, String.valueOf(userId));
+        jedisClient.close();
     }
 }
