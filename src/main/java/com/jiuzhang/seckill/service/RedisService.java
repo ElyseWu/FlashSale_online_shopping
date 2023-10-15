@@ -25,6 +25,12 @@ public class RedisService {
         jedisClient.close();
         return this;
     }
+
+    public void setValue(String key, String value) {
+        Jedis jedisClient = jedisPool.getResource();
+        jedisClient.set(key, value);
+        jedisClient.close();
+    }
     /**
      * 获取值
      *
