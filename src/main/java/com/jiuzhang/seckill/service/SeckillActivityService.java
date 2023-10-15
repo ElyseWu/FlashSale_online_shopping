@@ -3,8 +3,10 @@ package com.jiuzhang.seckill.service;
 import com.alibaba.fastjson.JSON;
 import com.jiuzhang.seckill.db.dao.OrderDao;
 import com.jiuzhang.seckill.db.dao.SeckillActivityDao;
+import com.jiuzhang.seckill.db.dao.SeckillCommodityDao;
 import com.jiuzhang.seckill.db.po.Order;
 import com.jiuzhang.seckill.db.po.SeckillActivity;
+import com.jiuzhang.seckill.db.po.SeckillCommodity;
 import com.jiuzhang.seckill.mq.RocketMQService;
 import com.jiuzhang.seckill.util.SnowFlake;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +30,9 @@ public class SeckillActivityService {
 
     @Resource
     private OrderDao orderDao;
+
+    @Resource
+    private SeckillCommodityDao seckillCommodityDao;
 
     private SnowFlake snowFlake = new SnowFlake(1, 1);
 
@@ -72,17 +77,17 @@ public class SeckillActivityService {
 
 
     public void payOrderProcess(String orderNo) throws Exception {
-//        log.info("完成支付订单 订单号：" + orderNo);
-//        Order order = orderDao.queryOrder(orderNo);
-//        boolean deductStockResult =
-//                seckillActivityDao.deductStock(order.getSeckillActivityId());
-//        if (deductStockResult) {
-//            order.setPayTime(new Date());
-//            // 订单状态 0、没有可用库存，无效订单 1、已创建等待支付 2、完成支付
-//            //0: out of stock, 1: waiting for pay  2: paid
-//            order.setOrderStatus(2);
-//            orderDao.updateOrder(order);
-//        }
+        //        log.info("完成支付订单 订单号：" + orderNo);
+        //        Order order = orderDao.queryOrder(orderNo);
+        //        boolean deductStockResult =
+        //                seckillActivityDao.deductStock(order.getSeckillActivityId());
+        //        if (deductStockResult) {
+        //            order.setPayTime(new Date());
+        //            // 订单状态 0、没有可用库存，无效订单 1、已创建等待支付 2、完成支付
+        //            //0: out of stock, 1: waiting for pay  2: paid
+        //            order.setOrderStatus(2);
+        //            orderDao.updateOrder(order);
+        //        }
         log.info("完成支付订单 订单号：" + orderNo);
         Order order = orderDao.queryOrder(orderNo);
         /*
@@ -108,5 +113,16 @@ public class SeckillActivityService {
          */
         rocketMQService.sendMessage("pay_done", JSON.toJSONString(order));
 
+    }
+
+    /**
+     * 将秒杀详情相关信息倒入redis
+     * @param seckillActivityId
+     */
+    public void pushSeckillInfoToRedis(long seckillActivityId) {
+        SeckillActivity seckillActivity = seckillActivityDao.querySeckillActivityById(seckillActivityId);
+        redisService.setValue("seckillActivity:" + seckillActivityId, JSON.toJSONString(seckillActivity));
+        SeckillCommodity seckillCommodity =  seckillCommodityDao.querySeckillCommodityById(seckillActivity.getCommodityId());
+        redisService.setValue("seckillCommodity:" + seckillActivity.getCommodityId(), JSON.toJSONString(seckillCommodity));
     }
 }
