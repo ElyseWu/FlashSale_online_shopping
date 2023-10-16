@@ -65,7 +65,7 @@ public class TestController {
         rules.add(rule);
         rules.add(rule2);
         //4.加载限流规则
-        FlowRuleManager.loadRules(rules);lim
+        FlowRuleManager.loadRules(rules);
     }
 
 }
